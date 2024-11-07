@@ -7,20 +7,30 @@ const { SQLconnection } = require("../utility");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../utility")
 
-router.get("/getAllAccounts", async (req, res) => {
+// get all advisee account
+router.get("/getAllAdvisees", authenticateToken, async (req, res) => {
   try {
+    const { user } = req.user;
     const connection = SQLconnection();
-    const query = `SELECT * FROM adviser_account WHERE 1`;
+    const query = `SELECT
+    Student_account.student_id,
+    Program.program_name, 
+    Student_account.first_name, 
+    Student_account.middle_name, 
+    Student_account.last_name, 
+    Student_account.email 
+    FROM Student_account 
+    JOIN Program 
+    ON Student_account.program_id = Program.program_id WHERE adviser_id = '${user.adviser_id}';`;
     const [data] = await connection.query(query);
-    return res.json({
-      adviser_accounts: data
-    });
+    return res.json({advisees:data});
   } catch (err) {
     console.error("Error fetching details: ", err);
-    res.status(500).send("Error fetching details.")
+    res.status(500).send("Error fetching details.");
   }
 });
 
+// get user info
 router.get("/getUser", authenticateToken, async (req, res) => {
   const { user } = req.user;
   const connection = SQLconnection();
@@ -32,11 +42,25 @@ router.get("/getUser", authenticateToken, async (req, res) => {
   });
 });
 
+
+// log in adviser
 router.post("/login", async (req, res) => {
   try {
     const {adviser_id, password} = req.body;
     const connection = SQLconnection();
-    const query = `SELECT adviser_id, Advisor_account.teacher_id, 'password', first_name, middle_name, last_name, position, department FROM Advisor_account JOIN teacher ON Advisor_account.teacher_id = teacher.teacher_id  WHERE adviser_id = '${adviser_id}'`;
+    const query = `
+    SELECT
+      adviser_id, 
+      Advisor_account.teacher_id, 
+      'password', 
+      first_name, 
+      middle_name, 
+      last_name, 
+      position, 
+      department 
+    FROM Advisor_account 
+    JOIN teacher 
+    ON Advisor_account.teacher_id = teacher.teacher_id  WHERE adviser_id = '${adviser_id}'`;
     const [user] = await connection.query(query);
     if(user.length == 0) return res.json({error: true, message:"User does not exist"});
     const validPassword = (user[0].password === password);
