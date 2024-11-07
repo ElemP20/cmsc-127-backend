@@ -52,7 +52,7 @@ router.post("/login", async (req, res) => {
     SELECT
       adviser_id, 
       Advisor_account.teacher_id, 
-      'password', 
+      password, 
       first_name, 
       middle_name, 
       last_name, 
