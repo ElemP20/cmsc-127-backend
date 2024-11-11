@@ -16,11 +16,15 @@ app.use(cors(
 // MySQL Connection
 const { SQLconnection } = require("./utility");
 
-// get adviser Routes
+// Get Adviser Routes
 const adviserRoutes = require("./routes/adviserRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 
-// APIS
+// Private Routes
 app.use("/advisers", adviserRoutes);
+
+// Public API ideas
+app.use("/APIs", publicRoutes);
 
 app.listen(process.env.PORT || 8000);
 module.exports = app;

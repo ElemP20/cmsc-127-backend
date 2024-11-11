@@ -1,8 +1,3 @@
-// Hotdog :)
-// Tocino :)
-// ice cream yammi pa nga
-// Longganisa
-
 const express = require("express");
 const router = express.Router();
 
@@ -12,22 +7,32 @@ const { SQLconnection } = require("../utility");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../utility")
 
-// get all advisee account
+// Introduce Encryption
+const bcrypt = require("bcrypt");
+
+// Get All Advisees API
 router.get("/getAllAdvisees", authenticateToken, async (req, res) => {
   try {
     const { user } = req.user;
     const connection = SQLconnection();
-    const query = `SELECT
-    Student_account.student_id,
-    Program.program_name, 
-    Student_account.first_name, 
-    Student_account.middle_name, 
-    Student_account.last_name, 
-    Student_account.email 
-    FROM Student_account 
-    JOIN Program 
-    ON Student_account.program_id = Program.program_id WHERE adviser_id = '${user.adviser_id}';`;
+    const query = `
+    SELECT sub.student_id, sub.program_name, first_name, middle_name, last_name, email, year, Record.status
+    FROM (SELECT
+            Student.student_id,
+            Program.program_name, 
+            Student.first_name, 
+            Student.middle_name, 
+            Student.last_name, 
+            Student.email,
+            Student.year
+          FROM Student_Account as Student 
+          JOIN Program 
+          ON Student.program_id = Program.program_id WHERE 1) as sub
+    INNER JOIN Advising_Record as Record
+    ON sub.student_id = Record.student_id
+    WHERE Record.adviser_id = '${user.adviser_id}';`;
     const [data] = await connection.query(query);
+    connection.end();
     return res.json({advisees:data});
   } catch (err) {
     console.error("Error fetching details: ", err);
@@ -35,20 +40,59 @@ router.get("/getAllAdvisees", authenticateToken, async (req, res) => {
   }
 });
 
-// get user info
+// Get User Info
 router.get("/getUser", authenticateToken, async (req, res) => {
+  try {
   const { user } = req.user;
   const connection = SQLconnection();
-  const query = `SELECT * FROM Advisor_account WHERE adviser_id = '${user.adviser_id}'`;
+  const query = `SELECT * FROM Adviser_Account WHERE adviser_id = '${user.adviser_id}'`;
   const [isUser] = await connection.query(query);
   if(isUser.length < 1) return res.sendStatus(403);
+  connection.end();
   return res.json({
     user
   });
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
 });
 
+// Get Checklist of Student
+router.get("/getChecklist/:student_id", authenticateToken, async (req, res) => {
+  try {
+    const { student_id } = req.params;
+    const connection = SQLconnection();
+    const query = `SELECT Checklist_Record.course_id, Course_Catalogue.name, Course_Catalogue.description, Course_Catalogue.units, Course_Catalogue.category, Checklist_Record.status
+      FROM Checklist_Record
+      JOIN Course_Catalogue
+      ON Checklist_Record.course_id = Course_Catalogue.course_id
+      WHERE Checklist_Record.student_id = '${student_id}'`;
+    const [checklist] = await connection.query(query);
+    connection.end();
+    return res.json({checklist});
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+});
 
-// log in adviser
+// Add Student to Checklist Record
+router.post("/addChecklist", authenticateToken, async (req, res) => {
+  try {
+    const { student_id, course_id } = req.body;
+    const connection = SQLconnection();
+    const query = `INSERT INTO Checklist_Record (student_id, course_id, status) VALUES ('${student_id}', '${course_id}', FALSE)`;
+    const [data] = await connection.query(query);
+    connection.end();
+    return res.json({data});
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+});
+
+// Log In for Adviser
 router.post("/login", async (req, res) => {
   try {
     const {adviser_id, password} = req.body;
@@ -56,20 +100,22 @@ router.post("/login", async (req, res) => {
     const query = `
     SELECT
       adviser_id, 
-      Advisor_account.teacher_id, 
+      Adviser_Account.teacher_id, 
       password, 
       first_name, 
       middle_name, 
       last_name, 
       position, 
       department 
-    FROM Advisor_account 
-    JOIN teacher 
-    ON Advisor_account.teacher_id = teacher.teacher_id  WHERE adviser_id = '${adviser_id}'`;
+    FROM Adviser_Account 
+    JOIN Teacher 
+    ON Adviser_Account.teacher_id = Teacher.teacher_id  WHERE adviser_id = '${adviser_id}'`;
     const [user] = await connection.query(query);
     if(user.length == 0) return res.json({error: true, message:"User does not exist"});
-    const validPassword = (user[0].password === password);
-    if(!validPassword) return res.json({error: true, message:"Incorrect password"});
+
+    const passCheck = bcrypt.compare(password, user[0].password);
+
+    if(!passCheck) return res.json({error: true, message:"Incorrect password"});
     const account = {
       user:{
         adviser_id: user[0].adviser_id,
@@ -81,12 +127,27 @@ router.post("/login", async (req, res) => {
         department: user[0].department
       }
     }
-
     const accessToken = jwt.sign(account, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
+    connection.end();
     return res.json({error: false, message:"User Logged In", accessToken});
   } catch (err) {
     console.error("Error fetching details: ", err);
     res.status(500).send("Error fetching details.")
+  }
+});
+
+// Tag Student
+router.post("/tagStudent/", authenticateToken, async (req, res) => {
+  try {
+    const { student_id, status } = req.body;
+    const connection = SQLconnection();
+    const query = `UPDATE Advising_Record SET status = '${status?0:1}' WHERE student_id = '${student_id}'`;
+    const [data] = await connection.query(query);
+    connection.end();
+    return res.json({Error: false, message:status?"Student Untagged":"Student Tagged"});
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
   }
 });
 
