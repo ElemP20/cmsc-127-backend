@@ -10,6 +10,65 @@ const { authenticateToken } = require("../utility")
 // Introduce Encryption
 const bcrypt = require("bcrypt");
 
+// Add Student
+router.post("/addStudent", async (req, res) => {
+  const {studentID, first_name, middle_name, last_name, adviser_id, program_id, date_of_birth, year, address, contact, email, password} = req.body;
+  const connection = SQLconnection();
+  try {
+    let query = `
+    INSERT INTO Student_Account (student_id, first_name, middle_name, last_name, adviser_id, program_id, date_of_birth, year, address, phone_number, email, password) 
+    VALUES ('${studentID}', '${first_name}', '${middle_name}', '${last_name}', '${adviser_id}', '${program_id}', '${date_of_birth}', '${year}', '${address}', '${contact}', '${email}', '${password}')`;
+    await connection.query(query);
+    query = `INSERT INTO Checklist_Record (checklist_record_id, course_id, student_id, status)
+              SELECT 
+                  (SELECT COUNT(*) FROM Checklist_Record) + ROW_NUMBER() OVER() AS checklist_id,
+                  course_id, 
+                  student_id, 
+                  0
+              FROM (
+                  SELECT course_id, sub.student_id
+                  FROM Checklist
+                  JOIN (SELECT student_id
+                        FROM Student_Account
+                        WHERE student_id = ${studentID}) AS sub
+                  WHERE program_id = ${program_id}
+              ) AS subsub;`;
+    await connection.query(query);
+    query = `INSERT INTO Advising_Record (advising_id, adviser_id, student_id, status)
+            SELECT 
+                (SELECT COUNT(*) FROM Advising_Record) + ROW_NUMBER() OVER(),
+                '${adviser_id}',  
+                '${studentID}', 
+                0 
+            FROM (SELECT 1) as sub`;
+    await connection.query(query);
+    connection.end();
+    return res.json({Error: false, message:"Student Added Successfully"});
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+})
+
+// Delete Student
+router.delete("/delete/:student_id", authenticateToken, async (req, res) => {
+  try {
+    const { student_id } = req.params;
+    const connection = SQLconnection();
+    let query = `DELETE FROM Advising_Record WHERE student_id = '${student_id}'`;
+    await connection.query(query);
+    query = `DELETE FROM Checklist_Record WHERE student_id = '${student_id}'`;
+    await connection.query(query);
+    query = `DELETE FROM Student_Account WHERE student_id = '${student_id}'`;
+    await connection.query(query);
+    connection.end();
+    return res.json({Error: false, message:"Student Deleted Successfully"});
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+});
+
 // Get All Advisees API
 router.get("/getAllAdvisees", authenticateToken, async (req, res) => {
   try {
