@@ -122,11 +122,35 @@ router.get("/getChecklist/:student_id", authenticateToken, async (req, res) => {
   try {
     const { student_id } = req.params;
     const connection = SQLconnection();
-    const query = `SELECT Checklist_Record.course_id, Course_Catalogue.name, Course_Catalogue.description, Course_Catalogue.units, Course_Catalogue.category, Checklist_Record.status
-      FROM Checklist_Record
-      JOIN Course_Catalogue
-      ON Checklist_Record.course_id = Course_Catalogue.course_id
-      WHERE Checklist_Record.student_id = '${student_id}'`;
+    const query = `SELECT DISTINCT subsub.course_id,
+       subsub.name,
+       subsub.description,
+       subsub.category,
+       subsub.units,
+       subsub.status,
+       Checklist.term,
+       Checklist.year
+FROM (SELECT sub.course_id,
+             sub.name,
+             sub.description,
+             sub.units,
+             sub.category,
+             sub.status,
+             Student_Account.program_id
+      FROM (SELECT Checklist_Record.course_id,
+                   Course_Catalogue.name,
+                   Course_Catalogue.description,
+                   Course_Catalogue.units,
+                   Course_Catalogue.category,
+                   Checklist_Record.status,
+                   Checklist_Record.student_id
+            FROM Checklist_Record
+            JOIN Course_Catalogue
+            ON Checklist_Record.course_id = Course_Catalogue.course_id
+            WHERE Checklist_Record.student_id = ${student_id}) as sub
+      JOIN Student_Account ON sub.student_id = Student_Account.student_id) as subsub
+JOIN Checklist WHERE
+Checklist.program_id = subsub.program_id AND Checklist.course_id = subsub.course_id`;
     const [checklist] = await connection.query(query);
     connection.end();
     return res.json({checklist});
@@ -159,7 +183,7 @@ router.post("/login", async (req, res) => {
     const query = `
     SELECT
       adviser_id, 
-      Adviser_Account.teacher_id, 
+      Adviser_Account.teacher_id,
       password, 
       first_name, 
       middle_name, 
