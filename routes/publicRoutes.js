@@ -30,4 +30,17 @@ router.get("/getAllPrograms", async (req, res) => {
   }
 });
 
+router.get("/getAllAdvisers", async (req, res) => {
+  try {
+    const connection = SQLconnection();
+    const query = `SELECT adviser_id, first_name, middle_name, last_name, position, department FROM Adviser_Account JOIN Teacher ON Adviser_Account.teacher_id=Teacher.teacher_id WHERE 1`;
+    const [advisers] = await connection.query(query);
+    connection.end();
+    return res.json(advisers);
+  } catch (err) {
+    console.error("Error fetching advisers: ", err);
+    res.status(500).send("Error fetching advisers.");
+  }
+});
+
 module.exports = router;
