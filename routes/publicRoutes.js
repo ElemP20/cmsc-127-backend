@@ -17,4 +17,17 @@ router.get("/getProgramCourses/:program_id", async (req, res) => {
   }
 });
 
+router.get("/getAllPrograms", async (req, res) => {
+  try {
+    const connection = SQLconnection();
+    const query = `SELECT * FROM Program WHERE 1`;
+    const [courses] = await connection.query(query);
+    connection.end();
+    return res.json(courses);
+  } catch (err) {
+    console.error("Error fetching advisers: ", err);
+    res.status(500).send("Error fetching advisers.");
+  }
+});
+
 module.exports = router;
