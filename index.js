@@ -24,7 +24,7 @@ const publicRoutes = require("./routes/publicRoutes");
 app.use("/advisers", adviserRoutes);
 
 // Public API ideas
-app.use("/APIs", publicRoutes);
+app.use("/apis", publicRoutes);
 
 app.listen(process.env.PORT || 8000);
 module.exports = app;
