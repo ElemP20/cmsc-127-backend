@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const axios = require('axios'); // added axios import
 
 const { SQLconnection } = require("../utility");
 
@@ -14,6 +15,18 @@ router.get("/getProgramCourses/:program_id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching advisers: ", err);
     res.status(500).send("Error fetching advisers.");
+  }
+});
+
+router.get("/getCourseCatalogue", async (req, res) => {
+  try {
+    const connection = SQLconnection();
+    const query = `SELECT * FROM Course_Catalogue WHERE 1`;
+    const [courses] = await connection.query(query);
+    connection.end();
+    return res.json(courses);
+  } catch (err) {
+    res.status(500).send("Error fetching courses.");
   }
 });
 
@@ -45,6 +58,7 @@ router.get("/getAllAdvisers", async (req, res) => {
 
 router.post("/createChecklist", async (req, res) => {
   const {studentID, adviser_id, program_id} = req.body;
+  console.log(studentID, adviser_id, program_id);
   const connection = SQLconnection();
   try {
     let query = `INSERT INTO Checklist_Record (checklist_record_id, course_id, student_id, status)

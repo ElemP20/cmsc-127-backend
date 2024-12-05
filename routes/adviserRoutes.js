@@ -3,6 +3,8 @@ const router = express.Router();
 
 const { SQLconnection } = require("../utility");
 
+const axios = require('axios');
+
 // Authentication of Token
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../utility")
@@ -19,8 +21,6 @@ router.delete("/delete/:student_id", authenticateToken, async (req, res) => {
     await connection.query(query);
     query = `DELETE FROM Checklist_Record WHERE student_id = '${student_id}'`;
     await connection.query(query);
-    query = `DELETE FROM Student_Account WHERE student_id = '${student_id}'`;
-    await connection.query(query);
     connection.end();
     return res.json({Error: false, message:"Student Deleted Successfully"});
   } catch (err) {
@@ -34,25 +34,10 @@ router.get("/getAllAdvisees", authenticateToken, async (req, res) => {
   try {
     const { user } = req.user;
     const connection = SQLconnection();
-    const query = `
-    SELECT sub.student_id, sub.program_name, first_name, middle_name, last_name, email, year, Record.status
-    FROM (SELECT
-            Student.student_id,
-            Program.program_name, 
-            Student.first_name, 
-            Student.middle_name, 
-            Student.last_name, 
-            Student.email,
-            Student.year
-          FROM Student_Account as Student 
-          JOIN Program 
-          ON Student.program_id = Program.program_id WHERE 1) as sub
-    INNER JOIN Advising_Record as Record
-    ON sub.student_id = Record.student_id
-    WHERE Record.adviser_id = '${user.adviser_id}';`;
+    const query = `SELECT student_id, status FROM Advising_Record WHERE adviser_id = '${user.adviser_id}'`;
     const [data] = await connection.query(query);
-    connection.end();
-    return res.json({advisees:data});
+    const students = await axios.get("https://sais-project.vercel.app/api/student/getAllStudents");
+    return res.json({advisees: data, students: students.data});
   } catch (err) {
     console.error("Error fetching details: ", err);
     res.status(500).send("Error fetching details.");
@@ -82,38 +67,16 @@ router.get("/getChecklist/:student_id", authenticateToken, async (req, res) => {
   try {
     const { student_id } = req.params;
     const connection = SQLconnection();
-    const query = `SELECT DISTINCT subsub.course_id,
-       subsub.name,
-       subsub.description,
-       subsub.category,
-       subsub.units,
-       subsub.status,
-       Checklist.term,
-       Checklist.year
-FROM (SELECT sub.course_id,
-             sub.name,
-             sub.description,
-             sub.units,
-             sub.category,
-             sub.status,
-             Student_Account.program_id
-      FROM (SELECT Checklist_Record.course_id,
-                   Course_Catalogue.name,
-                   Course_Catalogue.description,
-                   Course_Catalogue.units,
-                   Course_Catalogue.category,
-                   Checklist_Record.status,
-                   Checklist_Record.student_id
-            FROM Checklist_Record
-            JOIN Course_Catalogue
-            ON Checklist_Record.course_id = Course_Catalogue.course_id
-            WHERE Checklist_Record.student_id = ${student_id}) as sub
-      JOIN Student_Account ON sub.student_id = Student_Account.student_id) as subsub
-JOIN Checklist WHERE
-Checklist.program_id = subsub.program_id AND Checklist.course_id = subsub.course_id`;
+    const query = `
+    SELECT sub.course_id, sub.term, sub.year, Course_Catalogue.name, Course_Catalogue.category, Course_Catalogue.units, sub.status FROM (SELECT DISTINCT Checklist_Record.course_id, Checklist.term, Checklist.year, status 
+    FROM Checklist_Record 
+    RIGHT JOIN Checklist 
+    ON Checklist_Record.course_id = Checklist.course_id WHERE student_id = ${student_id}) as sub
+    RIGHT JOIN Course_Catalogue 
+    ON Course_Catalogue.course_id = sub.course_id WHERE 1`;
     const [checklist] = await connection.query(query);
     connection.end();
-    return res.json({checklist});
+    return res.json(checklist);
   } catch (err) {
     console.error("Error fetching details: ", err);
     res.status(500).send("Error fetching details.");
