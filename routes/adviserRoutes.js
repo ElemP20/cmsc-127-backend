@@ -74,11 +74,53 @@ router.get("/getChecklist/:student_id", authenticateToken, async (req, res) => {
     FROM Checklist_Record 
     RIGHT JOIN Checklist 
     ON Checklist_Record.course_id = Checklist.course_id WHERE student_id = ${student_id}) as sub
-    RIGHT JOIN Course_Catalogue 
+    JOIN Course_Catalogue 
     ON Course_Catalogue.course_id = sub.course_id WHERE 1`;
     const [checklist] = await connection.query(query);
     connection.end();
     return res.json(checklist);
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+});
+
+// Get Enrollment Details
+router.get("/getEnrollmentDetails", async (req, res) => {
+  try {
+    const connection = SQLconnection();
+    const query = `SELECT * FROM adminEnrollment WHERE 1`
+    const [response] = await connection.query(query);
+    connection.end();
+    return res.json(response);
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+});
+
+router.post("/resetTag", async (req, res) => {
+  try {
+    const connection = SQLconnection();
+    const query = `UPDATE Advising_Record SET status = 0 WHERE 1`
+    await connection.query(query);
+    connection.end();
+    return res.json({success: true});
+  } catch (err) {
+    console.error("Error fetching details: ", err);
+    res.status(500).send("Error fetching details.");
+  }
+});
+
+// Update Enrollment
+router.post("/updateEnrollmentDetails", async (req, res) => {
+  try {
+    const {start_date, end_date, School_Year, Semester} = req.body;
+    const connection = SQLconnection();
+    const query = `UPDATE adminEnrollment SET startDate = '${start_date}', endDate = '${end_date}', schoolYear = '${School_Year}', semester = '${Semester}' WHERE id=1`
+    await connection.query(query);
+    connection.end();
+    return res.json({success: true});
   } catch (err) {
     console.error("Error fetching details: ", err);
     res.status(500).send("Error fetching details.");
@@ -149,8 +191,8 @@ router.post("/tagStudent/", authenticateToken, async (req, res) => {
   try {
     const { student_id, status } = req.body;
     const connection = SQLconnection();
-    const query = `UPDATE Advising_Record SET status = '${status?0:1}' WHERE student_id = '${student_id}'`;
-    const [data] = await connection.query(query);
+    const query = `UPDATE Advising_Record SET status = '${status == 'Not Tagged' ? 1 : 0}' WHERE student_id = '${student_id}'`;
+    await connection.query(query);
     connection.end();
     return res.json({Error: false, message:status?"Student Untagged":"Student Tagged"});
   } catch (err) {

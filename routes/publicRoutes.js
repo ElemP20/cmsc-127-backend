@@ -58,7 +58,6 @@ router.get("/getAllAdvisers", async (req, res) => {
 
 router.post("/createChecklist", async (req, res) => {
   const {studentID, adviser_id, program_id} = req.body;
-  console.log(studentID, adviser_id, program_id);
   const connection = SQLconnection();
   try {
     let query = `INSERT INTO Checklist_Record (checklist_record_id, course_id, student_id, status)
