@@ -30,6 +30,19 @@ router.get("/getCourseCatalogue", async (req, res) => {
   }
 });
 
+router.get("/getAllStudents", async (req, res) => {
+  try {
+    const connection = SQLconnection();
+    const query = `SELECT * FROM other_Student WHERE 1`;
+    const [students] = await connection.query(query);
+    connection.end();
+    return res.json(students);
+  } catch (err) {
+    console.error("Error fetching advisers: ", err);
+    res.status(500).send("Error fetching advisers.");
+  }
+});
+
 router.get("/getAllPrograms", async (req, res) => {
   try {
     const connection = SQLconnection();
