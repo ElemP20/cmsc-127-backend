@@ -12,17 +12,18 @@ const { authenticateToken } = require("../utility")
 // Introduce Encryption
 const bcrypt = require("bcrypt");
 
-// Delete Student
-router.delete("/delete/:student_id", authenticateToken, async (req, res) => {
+router.put("/editStatus", authenticateToken, async (req, res) => {
   try {
-    const { student_id } = req.params;
-    const connection = SQLconnection();
-    let query = `DELETE FROM Advising_Record WHERE student_id = '${student_id}'`;
-    await connection.query(query);
-    query = `DELETE FROM Checklist_Record WHERE student_id = '${student_id}'`;
-    await connection.query(query);
-    connection.end();
-    return res.json({Error: false, message:"Student Deleted Successfully"});
+    const { studentID, newStatus } = req.body;
+    console.log({
+      studentId: studentID,
+      newStatus: newStatus
+    });
+    const response = await axios.put("https://sais-project.vercel.app/api/student/editStatus", {
+      studentId: studentID,
+      newStatus: newStatus
+    });
+    return res.json({success: true, response});
   } catch (err) {
     console.error("Error fetching details: ", err);
     res.status(500).send("Error fetching details.");
@@ -36,6 +37,7 @@ router.get("/getAllAdvisees", authenticateToken, async (req, res) => {
     const connection = SQLconnection();
     const query = `SELECT student_id, status FROM Advising_Record WHERE adviser_id = '${user.adviser_id}'`;
     const [data] = await connection.query(query);
+    // const students = await axios.get("https://one27-advising.onrender.com/apis/getAllStudents");
     const students = await axios.get("https://sais-project.vercel.app/api/student/getAllStudents");
     return res.json({advisees: data, students: students.data});
   } catch (err) {
@@ -63,15 +65,16 @@ router.get("/getUser", authenticateToken, async (req, res) => {
 });
 
 // Get Checklist of Student
-router.get("/getChecklist/:student_id", authenticateToken, async (req, res) => {
+router.get("/getChecklist/:student_id/:program_id", authenticateToken, async (req, res) => {
   try {
-    const { student_id } = req.params;
+    const { student_id, program_id } = req.params;
+
     const connection = SQLconnection();
     const query = `
     SELECT sub.course_id, sub.term, sub.year, Course_Catalogue.name, Course_Catalogue.category, Course_Catalogue.units, sub.status FROM (SELECT DISTINCT Checklist_Record.course_id, Checklist.term, Checklist.year, status 
     FROM Checklist_Record 
     RIGHT JOIN Checklist 
-    ON Checklist_Record.course_id = Checklist.course_id WHERE student_id = ${student_id}) as sub
+    ON Checklist_Record.course_id = Checklist.course_id WHERE student_id = ${student_id} and Checklist.program_id = ${program_id}) as sub
     JOIN Course_Catalogue 
     ON Course_Catalogue.course_id = sub.course_id WHERE 1`;
     const [checklist] = await connection.query(query);
@@ -119,21 +122,6 @@ router.post("/updateEnrollmentDetails", async (req, res) => {
     await connection.query(query);
     connection.end();
     return res.json({success: true});
-  } catch (err) {
-    console.error("Error fetching details: ", err);
-    res.status(500).send("Error fetching details.");
-  }
-});
-
-// Add Student to Checklist Record
-router.post("/addChecklist", authenticateToken, async (req, res) => {
-  try {
-    const { student_id, course_id } = req.body;
-    const connection = SQLconnection();
-    const query = `INSERT INTO Checklist_Record (student_id, course_id, status) VALUES ('${student_id}', '${course_id}', FALSE)`;
-    const [data] = await connection.query(query);
-    connection.end();
-    return res.json({data});
   } catch (err) {
     console.error("Error fetching details: ", err);
     res.status(500).send("Error fetching details.");
@@ -189,7 +177,8 @@ router.post("/tagStudent/", authenticateToken, async (req, res) => {
   try {
     const { student_id, status } = req.body;
     const connection = SQLconnection();
-    const query = `UPDATE Advising_Record SET status = '${status == 'Not Tagged' ? 1 : 0}' WHERE student_id = '${student_id}'`;
+    const query = `UPDATE Advising_Record SET status = '${status ? 0 : 1}' WHERE student_id = '${student_id}'`;
+    console.log(query);
     await connection.query(query);
     connection.end();
     return res.json({Error: false, message:status?"Student Untagged":"Student Tagged"});
